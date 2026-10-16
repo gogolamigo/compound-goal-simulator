@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>複利與財務目標模擬器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6fa;
+      --paper: #ffffff;
+      --ink: #182436;
+      --muted: #58687d;
+      --border: #dce3ed;
+      --accent: #087b79;
+      --accent-dark: #08605f;
+      --accent-pale: #e8f5f3;
+      --principal: #b36e24;
+      --target: #6c7190;
+      --danger: #b33442;
+      --danger-pale: #fff3f3;
+      --warning: #955a16;
+      --shadow: 0 9px 32px rgba(28, 44, 69, .05);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body { margin: 0; color: var(--ink); background: var(--bg); }
+    .page { max-width: 1250px; margin: 0 auto; padding: 42px 28px 32px; }
+    header { margin: 0 0 28px; }
+    .eyebrow { color: var(--accent-dark); letter-spacing: .07em; font-size: .78rem; font-weight: 750; margin: 0 0 10px; }
+    h1 { font-size: clamp(1.7rem, 3vw, 2.6rem); letter-spacing: -.035em; line-height: 1.22; margin: 0 0 12px; }
+    .subtitle { color: var(--muted); margin: 0; max-width: 760px; line-height: 1.7; }
+    .layout { display: grid; grid-template-columns: minmax(280px, 365px) minmax(0, 1fr); gap: 20px; align-items: start; }
+    .panel { background: var(--paper); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 18px; }
+    .controls { padding: 25px; }
+    h2 { font-size: 1.1rem; margin: 0 0 5px; letter-spacing: -.01em; }
+    .section-desc { color: var(--muted); margin: 0 0 22px; font-size: .86rem; line-height: 1.6; }
+    .field { margin-bottom: 17px; }
+    label { display: block; margin-bottom: 7px; font-size: .89rem; font-weight: 700; }
+    .input-wrap { position: relative; display: flex; align-items: center; border: 1.5px solid #bdc8d6; border-radius: 11px; min-height: 47px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+    .input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(8,123,121,.14); }
+    .unit { white-space: nowrap; color: var(--muted); font-size: .86rem; font-weight: 650; padding-left: 12px; }
+    .unit-suffix { padding-right: 13px; padding-left: 7px; }
+    input { color: var(--ink); width: 100%; min-width: 0; font-family: inherit; font-size: 1rem; font-variant-numeric: tabular-nums; border: 0; background: transparent; outline: 0; padding: 11px 11px; }
+    input::placeholder { color: #8390a2; }
+    .field[aria-invalid="true"] .input-wrap { border-color: var(--danger); background: var(--danger-pale); }
+    .field-error { color: var(--danger); font-size: .8rem; line-height: 1.35; margin: 5px 0 0; display: none; }
+    .field[aria-invalid="true"] .field-error { display: block; }
+    .control-note { border-top: 1px solid var(--border); padding-top: 16px; color: var(--muted); line-height: 1.75; font-size: .81rem; }
+    .control-note strong { color: var(--ink); }
+    .results { display: grid; gap: 16px; min-width: 0; }
+    .goal-card { padding: 25px 27px 24px; }
+    .goal-top { display: flex; justify-content: space-between; gap: 12px; align-items: start; flex-wrap: wrap; }
+    .goal-subtitle { color: var(--muted); font-size: .82rem; margin: 0 0 7px; }
+    .goal-rate { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 780; letter-spacing: -.04em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .status { font-size: .83rem; border-radius: 99px; padding: 8px 13px; font-weight: 750; }
+    .status.reached { color: #06645b; background: #ddf6ee; }
+    .status.not-reached { color: #8a4d17; background: #fff1df; }
+    .goal-track { height: 10px; border-radius: 99px; background: #e9edf3; overflow: hidden; margin: 21px 0 14px; }
+    .goal-fill { display: block; height: 100%; border-radius: inherit; background: var(--accent); width: 0%; transition: width .16s ease-out; }
+    .goal-caption { color: var(--muted); font-size: .86rem; line-height: 1.6; margin: 0; }
+    .boundary-note { color: #8e4f13; background: #fff6e9; border: 1px solid #f1d6ae; border-radius: 9px; padding: 9px 11px; font-size: .82rem; line-height: 1.55; margin: 13px 0 0; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .stat { padding: 19px 17px; min-width: 0; }
+    .stat .stat-label { color: var(--muted); font-size: .81rem; margin: 0 0 10px; font-weight: 620; }
+    .stat .stat-number { font-weight: 750; font-size: clamp(1rem, 1.65vw, 1.38rem); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; letter-spacing: -.035em; margin: 0; }
+    .stat .stat-sub { color: var(--muted); font-size: .77rem; margin: 7px 0 0; line-height: 1.5; }
+    .stat .loss { color: var(--danger); }
+    .chart-card { padding: 24px 24px 20px; min-width: 0; }
+    .chart-head { display: flex; gap: 12px; align-items: start; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
+    .chart-head p { color: var(--muted); margin: 5px 0 0; font-size: .83rem; line-height: 1.6; }
+    .chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 16px; margin-top: 16px; font-size: .8rem; color: var(--muted); }
+    .legend-item { display: inline-flex; gap: 7px; align-items: center; }
+    .legend-line { width: 24px; height: 0; border-top: 3px solid var(--accent); }
+    .legend-line.principal { border-color: var(--principal); }
+    .legend-line.target { border-color: var(--target); border-top-style: dashed; border-top-width: 2px; }
+    #growthChart { display: block; width: 100%; height: auto; }
+    .invalid-panel { padding: 32px 25px; border: 1px solid #f0b5bc; background: #fff8f8; border-radius: 18px; color: #83323b; }
+    .invalid-panel h2 { margin-bottom: 9px; }
+    .invalid-panel p { margin: 0; line-height: 1.65; }
+    footer { max-width: 1050px; margin: 25px auto 0; color: var(--muted); font-size: .78rem; line-height: 1.8; }
+    [hidden] { display: none !important; }
+    @media (max-width: 950px) {
+      .layout { grid-template-columns: 1fr; }
+      .controls { display: block; }
+      .page { max-width: 760px; }
+      .stat .stat-number { font-size: 1.35rem; }
+    }
+    @media (max-width: 600px) {
+      .page { padding: 25px 14px 25px; }
+      header { margin-bottom: 18px; }
+      .layout { gap: 13px; }
+      .panel { border-radius: 14px; }
+      .controls { padding: 19px; }
+      .goal-card { padding: 20px; }
+      .goal-track { margin-top: 17px; }
+      .stats { grid-template-columns: 1fr; gap: 10px; }
+      .stat { padding: 15px 18px; }
+      .stat .stat-label { margin-bottom: 5px; }
+      .stat .stat-number { font-size: 1.32rem; }
+      .stat .stat-sub { margin-top: 4px; }
+      .chart-card { padding: 19px 12px 16px; }
+      .chart-head { padding: 0 7px; }
+      footer { margin-top: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .goal-fill, .input-wrap { transition: none; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <p class="eyebrow">財務情境探索 · INTERACTIVE SIMULATOR</p>
+      <h1>複利與財務目標模擬器</h1>
+      <p class="subtitle">調整初始本金、每月投入及假設報酬率，探索未來的資產變化，看看你的財務目標能否達成。</p>
+    </header>
+
+    <div class="layout">
+      <aside class="panel controls" aria-labelledby="controlsTitle">
+        <h2 id="controlsTitle">投資條件設定</h2>
+        <p class="section-desc">修改任一有效數值，下方結果與圖表將立即更新。</p>
+        <form id="investmentForm" novalidate autocomplete="off">
+          <div class="field" id="principalField" aria-invalid="false">
+            <label for="principal">初始本金</label>
+            <div class="input-wrap"><span class="unit" aria-hidden="true">NT$</span><input id="principal" name="principal" type="text" inputmode="numeric" value="50,000" aria-describedby="principalError"></div>
+            <p class="field-error" id="principalError"></p>
+          </div>
+          <div class="field" id="monthlyField" aria-invalid="false">
+            <label for="monthly">每月投入金額</label>
+            <div class="input-wrap"><span class="unit" aria-hidden="true">NT$</span><input id="monthly" name="monthly" type="text" inputmode="numeric" value="5,000" aria-describedby="monthlyError"></div>
+            <p class="field-error" id="monthlyError"></p>
+          </div>
+          <div class="field" id="rateField" aria-invalid="false">
+            <label for="rate">假設有效年報酬率</label>
+            <div class="input-wrap"><input id="rate" name="rate" type="text" inputmode="decimal" value="6" aria-describedby="rateError"><span class="unit unit-suffix" aria-hidden="true">%</span></div>
+            <p class="field-error" id="rateError"></p>
+          </div>
+          <div class="field" id="yearsField" aria-invalid="false">
+            <label for="years">投資年數</label>
+            <div class="input-wrap"><input id="years" name="years" type="text" inputmode="numeric" value="10" aria-describedby="yearsError"><span class="unit unit-suffix" aria-hidden="true">年</span></div>
+            <p class="field-error" id="yearsError"></p>
+          </div>
+          <div class="field" id="targetField" aria-invalid="false">
+            <label for="target">財務目標金額</label>
+            <div class="input-wrap"><span class="unit" aria-hidden="true">NT$</span><input id="target" name="target" type="text" inputmode="numeric" value="1,000,000" aria-describedby="targetError"></div>
+            <p class="field-error" id="targetError"></p>
+          </div>
+        </form>
+        <div class="control-note">
+          <strong>計算假設：</strong>固定有效年報酬率、換算等效月率，每月底投入，逐月複利。年報酬率可設為負數以觀察虧損情境。
+        </div>
+      </aside>
+
+      <div class="results" id="validResults">
+        <section class="panel goal-card" aria-labelledby="goalHeading">
+          <div class="goal-top">
+            <div>
+              <p class="goal-subtitle" id="goalHeading">期末財務目標達成率</p>
+              <div class="goal-rate" id="goalRate" aria-live="polite">—</div>
+            </div>
+            <div class="status" id="goalStatus" role="status">—</div>
+          </div>
+          <div class="goal-track" role="progressbar" id="goalProgress" aria-label="期末財務目標達成率，進度條上限為100%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="goal-fill" id="goalFill"></span></div>
+          <p class="goal-caption" id="goalCaption">—</p>
+          <p class="boundary-note" id="boundaryNote" hidden></p>
+        </section>
+
+        <section class="stats" aria-label="財務模擬結果">
+          <article class="panel stat">
+            <p class="stat-label">預估最終資產</p>
+            <p class="stat-number" id="finalAmount">—</p>
+            <p class="stat-sub">指定投資期限結束時</p>
+          </article>
+          <article class="panel stat">
+            <p class="stat-label">累計投入本金</p>
+            <p class="stat-number" id="principalAmount">—</p>
+            <p class="stat-sub">初始本金＋各月底投入</p>
+          </article>
+          <article class="panel stat">
+            <p class="stat-label">累積投資收益</p>
+            <p class="stat-number" id="gainAmount">—</p>
+            <p class="stat-sub" id="gainSub">不包含稅費及通膨</p>
+          </article>
+        </section>
+
+        <section class="panel chart-card" aria-labelledby="chartHeading">
+          <div class="chart-head">
+            <div>
+              <h2 id="chartHeading">資產成長圖表</h2>
+              <p>橫軸為投資年數，縱軸為新臺幣金額（NT$）；從第 0 個月開始計算。</p>
+            </div>
+          </div>
+          <svg id="growthChart" role="img" aria-label="預估總資產、累計投入本金及財務目標的逐月成長圖"></svg>
+          <div class="chart-legend" aria-label="圖例">
+            <span class="legend-item"><span class="legend-line" aria-hidden="true"></span>預估總資產</span>
+            <span class="legend-item"><span class="legend-line principal" aria-hidden="true"></span>累計投入本金</span>
+            <span class="legend-item"><span class="legend-line target" aria-hidden="true"></span>財務目標</span>
+          </div>
+        </section>
+      </div>
+      <section class="invalid-panel" id="invalidResults" role="alert" hidden aria-labelledby="invalidTitle">
+        <h2 id="invalidTitle">請先修正輸入資料</h2>
+        <p>至少有一個欄位無效。為避免將上一次計算誤認為目前結果，暫時隱藏財務結果與圖表；修正後將自動重新計算。</p>
+      </section>
+    </div>
+
+    <footer>
+      <strong>模擬說明：</strong>本工具採固定有效年報酬率的教學假設，未考慮市場波動、稅費、通貨膨脹或交易成本。所有金額均為情境估算，不代表實際績效或保證報酬，也不構成投資建議。
+    </footer>
+  </main>
+
+  <script>
+    'use strict';
+    (() => {
+      const definitions = [
+        { id: 'principal', kind: 'money', min: 0, max: 10000000 },
+        { id: 'monthly', kind: 'money', min: 0, max: 100000 },
+        { id: 'rate', kind: 'rate', min: -20, max: 20 },
+        { id: 'years', kind: 'year', min: 1, max: 40 },
+        { id: 'target', kind: 'money', min: 1, max: 100000000 }
+      ];
+      const byId = id => document.getElementById(id);
+      const moneyFormatter = new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 0, minimumFractionDigits: 0 });
+      const rateFormatter = new Intl.NumberFormat('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const fmtMoney = amount => 'NT$' + moneyFormatter.format(Math.round(amount));
+      let lastValid = null;
+      let resizeScheduled = false;
+
+      function readField(def) {
+        const raw = byId(def.id).value.trim();
+        const rangeMessage = `請輸入 ${moneyFormatter.format(def.min)}～${moneyFormatter.format(def.max)}${def.kind === 'rate' ? '%' : def.kind === 'year' ? ' 年' : ' 元'}。`;
+        if (!raw) return { error: '此欄位不可空白。' };
+        let amount;
+        if (def.kind === 'rate') {
+          if (!/^-?\d+(?:\.\d+)?$/.test(raw)) return { error: '請輸入有效的百分比數值，例如 6 或 −2.5。' };
+          const part = raw.split('.')[1];
+          if (part && part.length > 1) return { error: '年報酬率最多允許小數第一位。' };
+          amount = Number(raw);
+        } else {
+          if (raw.includes('.')) return { error: '此欄位只允許整數。' };
+          const pattern = def.kind === 'money' ? /^(?:\d+|\d{1,3}(?:,\d{3})+)$/ : /^\d+$/;
+          if (!pattern.test(raw)) return { error: def.kind === 'money' ? '請輸入有效的整數金額，例如 5000 或 5,000。' : '請輸入有效的整數年數。' };
+          amount = Number(raw.replace(/,/g, ''));
+        }
+        if (!Number.isFinite(amount) || !Number.isSafeInteger(amount) && def.kind !== 'rate' || amount < def.min || amount > def.max) {
+          return { error: rangeMessage };
+        }
+        return { value: amount };
+      }
+
+      function validateAll() {
+        const values = {};
+        let isValid = true;
+        for (const def of definitions) {
+          const result = readField(def);
+          const field = byId(def.id + 'Field');
+          const input = byId(def.id);
+          const error = byId(def.id + 'Error');
+          if (result.error) {
+            isValid = false;
+            error.textContent = result.error;
+            field.setAttribute('aria-invalid', 'true');
+            input.setAttribute('aria-invalid', 'true');
+          } else {
+            values[def.id] = result.value;
+            error.textContent = '';
+            field.setAttribute('aria-invalid', 'false');
+            input.removeAttribute('aria-invalid');
+          }
+        }
+        return isValid ? values : null;
+      }
+
+      function calculate({ principal, monthly, rate, years, target }) {
+        const months = years * 12;
+        // 與 B_t = B_(t−1) × (1+i) + M 等價的閉式計算；
+        // 使用 log1p/expm1 降低長期遞迴和接近 0% 時的浮點誤差。
+        const monthlyLogGrowth = Math.log1p(rate / 100) / 12;
+        const monthlyRate = Math.expm1(monthlyLogGrowth);
+        const series = [{ month: 0, balance: principal, paid: principal }];
+        let balance = principal;
+        for (let month = 1; month <= months; month++) {
+          const growth = Math.exp(monthlyLogGrowth * month);
+          const annuityFactor = monthlyRate === 0 ? month : Math.expm1(monthlyLogGrowth * month) / monthlyRate;
+          balance = principal * growth + monthly * annuityFactor;
+          series.push({ month, balance, paid: principal + month * monthly });
+        }
+        const paid = principal + months * monthly;
+        return { years, target, series, balance, paid, gain: balance - paid, rate: balance / target * 100, reached: balance >= target };
+      }
+
+      function renderNumbers(result) {
+        const pct = rateFormatter.format(result.rate) + '%';
+        const rateElement = byId('goalRate');
+        rateElement.textContent = pct;
+        const status = byId('goalStatus');
+        status.textContent = result.reached ? '已達標' : '未達標';
+        status.className = 'status ' + (result.reached ? 'reached' : 'not-reached');
+        const progress = byId('goalProgress');
+        progress.setAttribute('aria-valuenow', String(Math.max(0, Math.min(100, result.rate))));
+        byId('goalFill').style.width = Math.max(0, Math.min(100, result.rate)) + '%';
+        byId('finalAmount').textContent = fmtMoney(result.balance);
+        byId('principalAmount').textContent = fmtMoney(result.paid);
+        const gain = byId('gainAmount');
+        const gainSub = byId('gainSub');
+        const boundary = byId('boundaryNote');
+        boundary.hidden = true;
+        boundary.textContent = '';
+        gain.classList.toggle('loss', result.gain < 0);
+        if (result.gain < 0) {
+          gain.textContent = Math.abs(result.gain) < 1 ? '投資損失未滿 NT$1' : '−' + fmtMoney(Math.abs(result.gain));
+          gainSub.textContent = '投資損失（負報酬情境）';
+        } else {
+          gain.textContent = fmtMoney(result.gain);
+          gainSub.textContent = '不包含稅費及通膨';
+        }
+        const caption = byId('goalCaption');
+        if (result.reached) {
+          const excess = result.balance - result.target;
+          caption.textContent = excess < 1 ? '已達到指定的財務目標。' : `超過財務目標約 ${fmtMoney(excess)}。`;
+          if (excess > 0 && excess < 1) {
+            boundary.hidden = false;
+            boundary.textContent = '期末資產高於目標，但超過金額不足 NT$1；達標判斷使用未四捨五入的值。';
+          }
+        } else {
+          const shortage = result.target - result.balance;
+          caption.textContent = shortage < 1 ? '距離目標尚差不足 NT$1。' : `距離財務目標尚差約 ${fmtMoney(shortage)}。`;
+          if (shortage < 1 || pct === '100.00%') {
+            boundary.hidden = false;
+            boundary.textContent = shortage < 1
+              ? '顯示金額可能因四捨五入而看似達標，但依未四捨五入數值判斷，實際仍未達標。'
+              : '達成率顯示經四捨五入；依未四捨五入數值判斷，實際仍未達標。';
+          }
+        }
+      }
+
+      const svgNS = 'http://www.w3.org/2000/svg';
+      function chartNode(tag, attrs = {}, text) {
+        const el = document.createElementNS(svgNS, tag);
+        for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+        if (text !== undefined) el.textContent = text;
+        return el;
+      }
+      function compactAmount(n) {
+        const rounded = Math.abs(n);
+        if (rounded >= 100000000) return (n / 100000000).toFixed(1).replace(/\.0$/, '') + '億';
+        if (rounded >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, '') + '萬';
+        if (rounded >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + '千';
+        return Math.round(n).toString();
+      }
+      function renderChart(result) {
+        const mobile = window.matchMedia('(max-width: 600px)').matches;
+        const width = mobile ? 460 : 760;
+        const height = mobile ? 280 : 335;
+        const bounds = { left: mobile ? 55 : 65, right: 18, top: 14, bottom: 39 };
+        const plotW = width - bounds.left - bounds.right;
+        const plotH = height - bounds.top - bounds.bottom;
+        const maxData = Math.max(result.target, ...result.series.map(p => Math.max(p.balance, p.paid)));
+        const maxY = maxData > 0 ? maxData * 1.12 : 1;
+        const lastMonth = result.series.length - 1;
+        const px = month => bounds.left + month / lastMonth * plotW;
+        const py = value => bounds.top + plotH * (1 - value / maxY);
+        const svg = byId('growthChart');
+        svg.replaceChildren();
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        const title = chartNode('title', { id: 'svgChartTitle' }, '資產成長與財務目標');
+        const description = chartNode('desc', { id: 'svgChartDescription' }, `投資 ${result.years} 年。期末資產 ${fmtMoney(result.balance)}，累計本金 ${fmtMoney(result.paid)}，目標 ${fmtMoney(result.target)}。`);
+        svg.append(title, description);
+        svg.setAttribute('aria-labelledby', 'svgChartTitle svgChartDescription');
+        for (let j = 0; j <= 4; j++) {
+          const value = maxY * j / 4;
+          const y = py(value);
+          svg.appendChild(chartNode('line', { x1: bounds.left, y1: y, x2: bounds.left + plotW, y2: y, stroke: '#e1e7ef', 'stroke-width': 1 }));
+          svg.appendChild(chartNode('text', { x: bounds.left - 8, y: y + 4, 'text-anchor': 'end', 'font-size': 12, fill: '#596a7e' }, compactAmount(value)));
+        }
+        for (let j = 0; j <= 4; j++) {
+          const month = lastMonth * j / 4;
+          const x = px(month);
+          const yr = month / 12;
+          svg.appendChild(chartNode('text', { x, y: bounds.top + plotH + 23, 'text-anchor': 'middle', 'font-size': 12, fill: '#596a7e' }, `${Number(yr.toFixed(2))}年`));
+        }
+        const toPath = key => result.series.map((point, idx) => `${idx ? 'L' : 'M'}${px(point.month).toFixed(2)},${py(point[key]).toFixed(2)}`).join(' ');
+        svg.appendChild(chartNode('line', { x1: bounds.left, y1: py(result.target), x2: bounds.left + plotW, y2: py(result.target), stroke: '#6c7190', 'stroke-width': 2.3, 'stroke-dasharray': '7 5' }));
+        svg.appendChild(chartNode('path', { d: toPath('paid'), fill: 'none', stroke: '#b36e24', 'stroke-width': mobile ? 2.9 : 3, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+        svg.appendChild(chartNode('path', { d: toPath('balance'), fill: 'none', stroke: '#087b79', 'stroke-width': mobile ? 3.6 : 3.8, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+        svg.appendChild(chartNode('circle', { cx: px(lastMonth), cy: py(result.balance), r: 4.2, fill: '#087b79', stroke: '#fff', 'stroke-width': 1.5 }));
+      }
+
+      function update() {
+        const values = validateAll();
+        const results = byId('validResults');
+        const invalid = byId('invalidResults');
+        if (!values) {
+          lastValid = null;
+          results.hidden = true;
+          invalid.hidden = false;
+          return;
+        }
+        try {
+          const calculation = calculate(values);
+          if (!Number.isFinite(calculation.balance) || !Number.isFinite(calculation.rate)) throw new Error('計算超出有效範圍');
+          lastValid = calculation;
+          renderNumbers(calculation);
+          renderChart(calculation);
+          results.hidden = false;
+          invalid.hidden = true;
+        } catch (err) {
+          lastValid = null;
+          results.hidden = true;
+          invalid.hidden = false;
+          byId('invalidResults').querySelector('p').textContent = '計算時遇到異常，請檢查輸入值後重試。';
+        }
+      }
+      for (const def of definitions) {
+        const input = byId(def.id);
+        input.addEventListener('input', update);
+        if (def.kind === 'money') {
+          input.addEventListener('blur', () => {
+            const result = readField(def);
+            if (!result.error) input.value = moneyFormatter.format(result.value);
+          });
+        }
+      }
+      byId('investmentForm').addEventListener('submit', e => e.preventDefault());
+      window.addEventListener('resize', () => {
+        if (resizeScheduled) return;
+        resizeScheduled = true;
+        requestAnimationFrame(() => {
+          resizeScheduled = false;
+          if (lastValid) renderChart(lastValid);
+        });
+      });
+      update();
+    })();
+  </script>
+</body>
+</html>
